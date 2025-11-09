@@ -77,3 +77,6 @@ pytest -n auto
     ```bash
     allure serve allure-results
 
+## ⚙️ CI/CD
+
+Проект настроен для автоматического запуска тестов с помощью GitHub Actions. 
