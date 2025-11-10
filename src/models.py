@@ -1,7 +1,6 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-
 class AdditionRequest(BaseModel):
     additional_info: Optional[str] = "Дополнительные сведения"
     additional_number: Optional[int] = 123

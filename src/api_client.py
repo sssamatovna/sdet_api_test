@@ -4,12 +4,13 @@ import requests
 from requests import Response
 from src.models import EntityRequest
 from src.endpoints import ApiEndpoints
-
+from src.base_requests import BaseRequests  # Импортируем обертку
 
 class ApiClient:
 
     def __init__(self, base_url: str):
         self.base_url = base_url
+        self.requests = BaseRequests()  # Используем класс-обертку
 
     def _log_request(self, response: Response) -> None:
         try:
@@ -18,7 +19,6 @@ class ApiClient:
                 "Request URL",
                 allure.attachment_type.TEXT,
             )
-
             if response.request.body:
                 try:
                     request_body_json = json.dumps(
@@ -33,13 +33,11 @@ class ApiClient:
                     allure.attach(
                         response.request.body, "Request Body (Text)", allure.attachment_type.TEXT
                     )
-
             allure.attach(
                 f"Status Code: {response.status_code}",
                 "Response Status Code",
                 allure.attachment_type.TEXT,
             )
-
             if response.text:
                 try:
                     response_body_json = json.dumps(
@@ -54,7 +52,6 @@ class ApiClient:
                     allure.attach(
                         response.text, "Response Body (Text)", allure.attachment_type.TEXT
                     )
-
         except Exception as e:
             allure.attach(
                 f"Ошибка при логировании: {e}",
@@ -64,30 +61,35 @@ class ApiClient:
 
     def create_entity(self, payload: EntityRequest) -> Response:
         url = f"{self.base_url}{ApiEndpoints.CREATE_ENTITY}"
-        response = requests.post(url, json=payload.model_dump())
+        # Заменяем requests.post на self.requests.post
+        response = self.requests.post(url, json=payload.model_dump())
         self._log_request(response)
         return response
 
     def get_entity(self, entity_id: int) -> Response:
         url = f"{self.base_url}{ApiEndpoints.get_entity_by_id(entity_id)}"
-        response = requests.get(url)
+        # Заменяем requests.get на self.requests.get
+        response = self.requests.get(url)
         self._log_request(response)
         return response
 
     def get_all_entities(self, params: dict = None) -> Response:
         url = f"{self.base_url}{ApiEndpoints.GET_ALL_ENTITIES}"
-        response = requests.get(url, params=params)
+        # Заменяем requests.get на self.requests.get
+        response = self.requests.get(url, params=params)
         self._log_request(response)
         return response
 
     def update_entity(self, entity_id: int, payload: EntityRequest) -> Response:
         url = f"{self.base_url}{ApiEndpoints.update_entity_by_id(entity_id)}"
-        response = requests.patch(url, json=payload.model_dump())
+        # Заменяем requests.patch на self.requests.patch
+        response = self.requests.patch(url, json=payload.model_dump())
         self._log_request(response)
         return response
 
     def delete_entity(self, entity_id: int) -> Response:
         url = f"{self.base_url}{ApiEndpoints.delete_entity_by_id(entity_id)}"
-        response = requests.delete(url)
+        # Заменяем requests.delete на self.requests.delete
+        response = self.requests.delete(url)
         self._log_request(response)
         return response

@@ -3,7 +3,7 @@ from src.models import EntityRequest, AdditionRequest
 
 def default_entity() -> EntityRequest:
     return EntityRequest(
-        title=f"Новая тестовая сущность - {uuid.uuid4().hex[:4]}", # Добавлен уникальный суффикс
+        title=f"Новая тестовая сущность - {uuid.uuid4().hex[:4]}",
         verified=True,
         important_numbers=[10, 20, 30],
         addition=AdditionRequest(
