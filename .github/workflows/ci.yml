@@ -1,0 +1,65 @@
+name: API Test CI
+
+on:
+  push:
+    branches:
+      - master
+      - feature/api-tests
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  run_api_tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: ⚙️ Install dependencies
+      run: |
+        # Установка pip
+        python -m pip install --upgrade pip
+        # Установка всех необходимых зависимостей
+        pip install pytest pytest-xdist allure-pytest pydantic python-dotenv requests
+
+    - name: 🛠️ Setup .env variables
+      env:
+        API_HOST: ${{ vars.API_HOST || 'http://localhost:8080' }}
+      run: |
+        # Создаем .env файл в корневой директории, 
+        # чтобы его могла прочитать фикстура base_url в conftest.py
+        echo "API_HOST=${API_HOST}" > .env
+        cat .env # Показываем содержимое (для отладки)
+
+    - name: Run Pytest and generate Allure results
+      run: |
+        pytest tests/ --alluredir=allure-results
+
+    - name: 💾 Upload Allure Report Artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: allure-report
+        path: allure-results
+        retention-days: 7
+
+    - name: Deploy Allure Report (Optional)
+      uses: simple-elf/allure-action@v1.5
+      if: always()
+      with:
+        allure_results: allure-results
+        gh_pages: gh-pages
+
+    - name: Deploy report to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
+      if: github.ref == 'refs/heads/master'
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: allure-history

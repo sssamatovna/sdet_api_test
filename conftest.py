@@ -1,0 +1,86 @@
+import pytest
+import os
+from dotenv import load_dotenv
+from src.api_client import ApiClient
+from tests import test_data
+
+# Загрузка переменных окружения
+load_dotenv()
+
+
+@pytest.fixture(scope="session")
+def base_url():
+    """
+    Фикстура, которая читает и возвращает базовый URL для API-сервиса.
+    """
+    # Предполагается, что переменная окружения API_HOST задана
+    url = os.getenv("API_HOST")
+    if not url:
+        pytest.fail("Переменная окружения API_HOST не задана в .env файле")
+
+    return f"{url}/api"
+
+
+@pytest.fixture(scope="session")
+def api_client(base_url):
+    """
+    Фикстура, которая создает и настраивает экземпляр API-клиента.
+    """
+    client = ApiClient(base_url=base_url)
+    return client
+
+
+@pytest.fixture
+def created_entity(api_client: ApiClient):
+    """
+    Фикстура для создания и последующей очистки одной сущности.
+    1. Создает сущность с данными по умолчанию.
+    2. Передает ID и payload созданной сущности в тест.
+    3. Гарантированно удаляет сущность после завершения теста (teardown).
+    """
+    payload = test_data.default_entity()
+    create_response = api_client.create_entity(payload)
+
+    assert (
+            create_response.status_code == 200
+    ), f"Предусловие не выполнено: не удалось создать сущность. Статус: {create_response.status_code}"
+
+    entity_id = int(create_response.text)
+
+    yield entity_id, payload  # Изменено на кортеж/деструктуризацию
+
+    api_client.delete_entity(entity_id)
+
+
+@pytest.fixture
+def created_entities_for_filter_test(api_client):
+    """
+    Фикстура для теста фильтрации:
+    1. Создает одну verified и одну unverified сущность.
+    2. Передает их ID и заголовки в тест.
+    3. Гарантированно удаляет обе сущности после завершения теста.
+    """
+    entities_to_delete = []
+
+    verified_payload = test_data.verified_entity()
+    unverified_payload = test_data.unverified_entity()
+
+    # 1. Создание verified сущности
+    create_verified_res = api_client.create_entity(verified_payload)
+    verified_id = int(create_verified_res.text)
+    entities_to_delete.append(verified_id)
+
+    # 2. Создание unverified сущности
+    create_unverified_res = api_client.create_entity(unverified_payload)
+    unverified_id = int(create_unverified_res.text)
+    entities_to_delete.append(unverified_id)
+
+    yield {
+        "verified_id": verified_id,
+        "unverified_id": unverified_id,
+        # Использование dict.get для извлечения title
+        "unverified_title": unverified_payload.title,
+    }
+
+    for entity_id in entities_to_delete:
+        api_client.delete_entity(entity_id)
