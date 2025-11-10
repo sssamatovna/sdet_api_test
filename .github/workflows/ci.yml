@@ -26,10 +26,16 @@ jobs:
         run: docker compose -f api_project/docker-compose.yaml up -d
 
       - name: Wait for API to be ready
-        run: echo "Waiting for 20 seconds for services to start..." && sleep 20
+        run: |
+          echo "Waiting for API service at http://localhost:8080..."
+          timeout 60s bash -c 'until curl -s http://localhost:8080/api/getAll > /dev/null; do
+            echo "API not ready, retrying in 5s..."
+            sleep 5
+          done'
+          echo "API is ready!"
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
