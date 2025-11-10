@@ -20,9 +20,12 @@ class TestEntityApi:
             Assertions.assert_status_code(get_response, 200)
 
             entity_data = EntityResponse.model_validate(get_response.json())
-            assert entity_data.id == entity_id
-            assert entity_data.title == payload.title
-            assert entity_data.verified == payload.verified
+            assert entity_data.id == entity_id, (
+                f"ID сущности не совпадает. Ожидалось: {entity_id}, получено: {entity_data.id}.")
+            assert entity_data.title == payload.title, (
+                f"Поле 'title' не совпадает. Ожидалось: '{payload.title}', получено: '{entity_data.title}'.")
+            assert entity_data.verified == payload.verified, (
+                f"Поле 'verified' не совпадает. Ожидалось: {payload.verified}, получено: {entity_data.verified}.")
 
         # Проверка в /getAll
         with allure.step("Проверка наличия сущности в общем списке /getAll"):
@@ -40,7 +43,8 @@ class TestEntityApi:
 
         with allure.step("Валидация структуры ответа"):
             parsed_response = EntityListResponse.model_validate(response.json())
-            assert isinstance(parsed_response.entity, list)
+            assert isinstance(parsed_response.entity, list), (
+                f"Ответ API должен содержать поле 'entity' типа list, получен тип: {type(parsed_response.entity)}.")
 
     @allure.story("Обновление сущности")
     @allure.title("Позитивный тест: обновление и проверка сущности")
@@ -57,8 +61,10 @@ class TestEntityApi:
             Assertions.assert_status_code(get_response, 200)  # (Правка 4)
 
             updated_data = EntityResponse.model_validate(get_response.json())
-            assert updated_data.title == update_payload.title
-            assert updated_data.verified == update_payload.verified
+            assert updated_data.title == update_payload.title, (
+                f"Поле 'title' не обновилось. Ожидалось: '{update_payload.title}', получено: '{updated_data.title}'.")
+            assert updated_data.verified == update_payload.verified, (
+                f"Поле 'verified' не обновилось. Ожидалось: {update_payload.verified}, получено: {updated_data.verified}.")
 
     @allure.story("Удаление сущности")
     @allure.title("Позитивный тест: удаление и проверка удаления сущности")
@@ -79,7 +85,9 @@ class TestEntityApi:
                               allure.attachment_type.TEXT)
 
             # Проверяем, что код >= 400
-            assert get_response.status_code >= 400
+            assert get_response.status_code >= 400, (
+                f"Сущность ID={entity_id} не была удалена. Ожидался статус >= 400 (идеально 404), "
+                f"получен статус: {get_response.status_code}.")
 
         # <-- Проверка в /getAll -->
         with allure.step("Проверка отсутствия сущности в общем списке /getAll"):
@@ -106,8 +114,11 @@ class TestEntityApi:
                 "Валидация ответа: все сущности в списке должны иметь verified=True"
         ):
             parsed_response = EntityListResponse.model_validate(response.json())
-            assert parsed_response.entity
+            assert parsed_response.entity, (
+                "Список сущностей после фильтрации не должен быть пустым, если сущности существуют.")
 
             for entity in parsed_response.entity:
-                assert entity.verified is True
-                assert entity.title != unverified_title
+                assert entity.verified is True, (
+                    f"Ошибка фильтрации: В список для verified=true попала сущность с ID={entity.id} и verified=False.")
+                assert entity.title != unverified_title, (
+                    f"Ошибка фильтрации: В список с verified=true попала сущность '{unverified_title}', которая должна быть отфильтрована.")
