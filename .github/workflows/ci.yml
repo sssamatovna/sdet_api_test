@@ -1,65 +1,64 @@
-name: API Test CI
+name: Build API, Run Tests, and Publish Report
 
 on:
   push:
-    branches:
-      - master
-      - feature/api-tests
+    branches: [master]
   pull_request:
-    branches:
-      - master
+    branches: [master]
 
 jobs:
-  run_api_tests:
+  run-tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout tests repository
+        uses: actions/checkout@v5
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
+      - name: Checkout API repository
+        uses: actions/checkout@v5
+        with:
+          repository: bondarenkokate73/simbirsoft_sdet_project
+          path: api_project
 
-    - name: ⚙️ Install dependencies
-      run: |
-        # Установка pip
-        python -m pip install --upgrade pip
-        # Установка всех необходимых зависимостей
-        pip install pytest pytest-xdist allure-pytest pydantic python-dotenv requests
+      - name: Build and run API container
+        run: docker compose -f api_project/docker-compose.yaml up -d
 
-    - name: 🛠️ Setup .env variables
-      env:
-        API_HOST: ${{ vars.API_HOST || 'http://localhost:8080' }}
-      run: |
-        # Создаем .env файл в корневой директории, 
-        # чтобы его могла прочитать фикстура base_url в conftest.py
-        echo "API_HOST=${API_HOST}" > .env
-        cat .env # Показываем содержимое (для отладки)
+      - name: Wait for API to be ready
+        run: echo "Waiting for 20 seconds for services to start..." && sleep 20
 
-    - name: Run Pytest and generate Allure results
-      run: |
-        pytest tests/ --alluredir=allure-results
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
 
-    - name: 💾 Upload Allure Report Artifact
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: allure-report
-        path: allure-results
-        retention-days: 7
+      - name: Install test dependencies
+        run: pip install -r requirements.txt
 
-    - name: Deploy Allure Report (Optional)
-      uses: simple-elf/allure-action@v1.5
-      if: always()
-      with:
-        allure_results: allure-results
-        gh_pages: gh-pages
+      - name: Run Pytest
+        run: pytest --alluredir=allure-results
+        env:
+          API_HOST: http://localhost:8080
 
-    - name: Deploy report to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v4
-      if: github.ref == 'refs/heads/master'
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: allure-history
+      - name: Stop API container
+        if: always()
+        run: docker compose -f api_project/docker-compose.yaml down
+
+      - name: Generate Allure report
+        if: always()
+        uses: simple-elf/allure-report-action@v1.13
+        with:
+          allure_results: allure-results
+          allure_report: allure-report
+          gh_pages: gh-pages
+          allure_history: allure-history
+
+      - name: Deploy report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-history
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
